@@ -50,19 +50,45 @@ display_task_information() {
     local TaskName="$1"
     local TaskWorkItem="$2"
     local TaskStartDate="$3"
+    local CurrentDttm=$(date +"%Y-%m-%d %H:%M:%S")
+    local Hours=$(calculate_hours "$TaskStartDate" "$CurrentDttm")
 
-    HourBetween=$(calculate_hours "$TaskStartDate" "$(GetDate)")
     echo "$bar"
     echo "Current Task: $TaskName"
     echo "Work Item: $TaskWorkItem"
-    echo "Date: "$(GetDateFormatted "$(GetDate)")""
-    echo "Current hours working: ${HourBetween}h"
+    echo "Date: $TaskStartDate"
+    echo "Current hours working: $Hours"
     echo "$bar"
 }
 
-OldPS1="$PS1"
-PS1="tldrTasker> "
+confirm_prompt() {
+    local PromptText="$1"
+    local DefaultPromptText="Are you sure? (Y/n): "
 
+    if [ -z "$PromptText" ] ; then
+        PromptText="$DefaultPromptText"
+    fi
+    
+    local confirmSelection=0
+    local confirmValue=0
+    while [ "$confirmSelection" -eq 0 ] ; do
+        echo "$text"
+        read -p "$PromptText " pConfirmInput
+        case $pConfirmInput in
+            1|Y|y)
+                confirmSelection=1
+                confirmValue=1
+            ;;
+            0|N|n)
+                confirmSelection=1
+                confirmValue=0
+            ;;
+            *)
+                echo "Invalid option..."
+        esac
+    done
+    echo "$confirmValue"
+}
 
 FilePath=$1 # This path will replace $DefaultFilePath if entered
 DefaultFilePath="TimeSheet.csv"
@@ -127,11 +153,9 @@ while [ $ExitCommand -eq 0 ] ; do
                         fi
                         echo "$text"
                     done
-                    echo "$text"
-                    echo "$text"
                     TaskName="$pTaskNameInput"
                     TaskWorkItem="$pTaskWorkItemInput"
-                    TaskStartDttm="$(GetDate)"
+                    TaskStartDttm="$(date +"%Y-%m-%d %H:%M:%S")"
                     TaskStatusId="ACTIVE"
                     echo "Work item [${TaskName}] for [${TaskWorkItem}] started at [${TaskStartDttm}]. Good Luck!"
                 ;;
@@ -149,27 +173,14 @@ while [ $ExitCommand -eq 0 ] ; do
                 ;;
                 "ACTIVE")
                     display_task_information $TaskName $TaskWorkItem $TaskStartDttm
-                    HourBetween=$(calculate_hours "$TaskStartDttm" "$(GetDate)")
-                    confirmSelection=0
-                    while [ "$confirmSelection" -eq 0 ] ; do
-                        echo "$text"
-                        read -p "Do you want to end current task? (y/N): " pEndCommand
-                        case $pEndCommand in
-                            1|Y|y)
-                                confirmSelection=1
-                                COMMAND="STOP"
-                            ;;
-                            0|N|n)
-                                confirmSelection=1
-                                COMMAND="RESUME"
-                            ;;
-                            *)
-                                echo "Invalid option..."
-                        esac
-                    done
+                    FinishTaskConfirmation=$(confirm_prompt "Finish task [${TaskName}]? (y/N): ")
                     
+                    if [ "$FinishTaskConfirmation" -eq 0 ] ; then
+                        echo "Resuming task, you can do it!"
+                    fi
+
                     echo "$text"
-                    if [ "$COMMAND" = "STOP" ] ; then
+                    if [ "$FinishTaskConfirmation" -eq 1 ] ; then
                         echo "Finishing task..."
                         CurrentDate=$(GetDate)
                         # Format Dates for the Output row
@@ -220,15 +231,40 @@ while [ $ExitCommand -eq 0 ] ; do
             esac
             ;;
         3)
-            echo "Option in development!"
-            # Add logic for cancelling a task here
+            echo "Cancel Task"
+            case $TaskStatusId in
+                "NONE")
+                    echo "$bar"
+                    echo "There are no active tasks to be cancelled..."
+                    echo "$bar"
+                    ;;
+                "ACTIVE")
+                    display_task_information "$TaskName" "$TaskWorkItem" "$TaskStartDttm"
+                    cancelConfirm=$(confirm_prompt "Are you sure you want to cancel [${TaskName}]? (y/N): ")
+
+                    if [ $cancelConfirm -eq 1 ] ; then
+                        TaskName=""
+                        TaskWorkItem=""
+                        TaskStartDttm=""
+                        TaskEndDttm=""
+                        TaskStatusId="NONE"
+                        echo "Task cancelled. Good job!"
+                    else
+                        echo "Resuming current task. Never give up!"
+                    fi
+                    ;;
+                *)
+                    ;;
+            esac
+            echo "Please, press any key to continue..."
+            read 
             ;;
         4)
             echo "$bar"
             echo "Showing Timesheet Status"
             case $TaskStatusId in
                 "ACTIVE")
-                    display_task_information $TaskName $TaskWorkItem $TaskStartDttm
+                    display_task_information "$TaskName" "$TaskWorkItem" "$TaskStartDttm"
                 ;;
                 "NONE")
                     echo "$bar"
@@ -245,7 +281,50 @@ while [ $ExitCommand -eq 0 ] ; do
             read 
             ;;
         5)
-            echo "Option in development!"
+            echo "Edit current task"
+
+            case $TaskStatusId in
+                "NONE")
+                    echo "$bar"
+                    echo "There are no active tasks."
+                    echo "$bar"
+                ;;
+                "ACTIVE")
+                    echo "$bar"
+                    echo "Editing current task"
+                    echo "$bar"
+
+                    inputValid=0
+                    while [ "$inputValid" -eq 0 ]; do
+                        read -p "Enter task name: " pTaskNameInput
+                        read -p "Enter task work item: " pTaskWorkItemInput
+                        echo "$text"
+                        inputValid=1
+                        
+                        if [ -z "$pTaskNameInput" ] ; then
+                            inputValid=0
+                            echo "Task name can't be empty..."
+                        fi
+                        
+                        if [ -z "$pTaskWorkItemInput" ] ; then
+                            inputValid=0
+                            echo "Task work item can't be empty..."
+                        fi
+                        echo "$text"
+                    done
+                    echo "$bar"
+                    TaskName="$pTaskNameInput"
+                    TaskWorkItem="$pTaskWorkItemInput"
+                    TaskStatusId="ACTIVE"
+                    echo "Work item [${TaskName}] for [${TaskWorkItem}] edited succesfully. glhf!"
+                ;;
+                
+                *)
+                ;;
+            esac
+
+            echo "Please, press any key to continue..."
+            read 
             ;;
         6)
             echo "Exiting the menu. Goodbye!"
@@ -256,15 +335,4 @@ while [ $ExitCommand -eq 0 ] ; do
             ;;
     esac
 done
-
-PS1="$OldPS1"
-
 exit 0
-
-# Check if the file exists
-# if [ -e "$file_path" ]; then
-#     source "./${file_path}"
-# else
-#     echo "File not found: $file_path"
-# fi
-# echo "$currentTask"
