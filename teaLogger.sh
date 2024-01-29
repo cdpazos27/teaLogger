@@ -90,10 +90,6 @@ confirm_prompt() {
     echo "$confirmValue"
 }
 
-OldPS1="$PS1"
-PS1="tldrTasker> "
-
-
 FilePath=$1 # This path will replace $DefaultFilePath if entered
 DefaultFilePath="TimeSheet.csv"
 
@@ -285,7 +281,50 @@ while [ $ExitCommand -eq 0 ] ; do
             read 
             ;;
         5)
-            echo "Option in development!"
+            echo "Edit current task"
+
+            case $TaskStatusId in
+                "NONE")
+                    echo "$bar"
+                    echo "There are no active tasks."
+                    echo "$bar"
+                ;;
+                "ACTIVE")
+                    echo "$bar"
+                    echo "Editing current task"
+                    echo "$bar"
+
+                    inputValid=0
+                    while [ "$inputValid" -eq 0 ]; do
+                        read -p "Enter task name: " pTaskNameInput
+                        read -p "Enter task work item: " pTaskWorkItemInput
+                        echo "$text"
+                        inputValid=1
+                        
+                        if [ -z "$pTaskNameInput" ] ; then
+                            inputValid=0
+                            echo "Task name can't be empty..."
+                        fi
+                        
+                        if [ -z "$pTaskWorkItemInput" ] ; then
+                            inputValid=0
+                            echo "Task work item can't be empty..."
+                        fi
+                        echo "$text"
+                    done
+                    echo "$bar"
+                    TaskName="$pTaskNameInput"
+                    TaskWorkItem="$pTaskWorkItemInput"
+                    TaskStatusId="ACTIVE"
+                    echo "Work item [${TaskName}] for [${TaskWorkItem}] edited succesfully. glhf!"
+                ;;
+                
+                *)
+                ;;
+            esac
+
+            echo "Please, press any key to continue..."
+            read 
             ;;
         6)
             echo "Exiting the menu. Goodbye!"
@@ -296,15 +335,4 @@ while [ $ExitCommand -eq 0 ] ; do
             ;;
     esac
 done
-
-PS1="$OldPS1"
-
 exit 0
-
-# Check if the file exists
-# if [ -e "$file_path" ]; then
-#     source "./${file_path}"
-# else
-#     echo "File not found: $file_path"
-# fi
-# echo "$currentTask"
